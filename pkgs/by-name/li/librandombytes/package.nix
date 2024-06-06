@@ -1,10 +1,10 @@
-{ stdenv, python3, openssl }:
-stdenv.mkDerivation rec {
+{ stdenv, python3, openssl, fetchzip }:
+stdenv.mkDerivation (prev: {
   pname = "librandombytes";
   version = "20230919";
 
   src = fetchzip {
-    url = "https://randombytes.cr.yp.to/librandombytes-${version}.tar.gz";
+    url = "https://randombytes.cr.yp.to/librandombytes-${prev.version}.tar.gz";
     hash = "sha256-wr44x45AwEU1v4kvbmG37npUJGmRprnUtAzQvJJuPyw=";
   };
 
@@ -12,9 +12,9 @@ stdenv.mkDerivation rec {
 
   buildInputs = [ openssl ];
 
-  configurePhase = ''
+  preConfigure = ''
     patchShebangs configure
     patchShebangs scripts-build
-    ./configure --prefix=${placeholder "out"}
   '';
-}
+   
+})
