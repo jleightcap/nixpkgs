@@ -14,6 +14,8 @@ stdenv.mkDerivation (prev: {
     hash = "sha256-LE8iWw7FxckPREyqefgKtslD6CPDsL7VsfHScQ6JmLs=";
   };
   # TODO: Why is not stripped?
+  # while working with nix relp nix try strip something (maybe is failing)
+  # librandombytes> stripping (with command strip and flags -S -p) in  /nix/store/j7wfxf67va4by0mnhas0py1hvrjdp79i-librandombytes-20240318/lib /nix/store/j7wfxf67va4by0mnhas0py1hvrjdp79i-librandombytes-20240318/bin
   # TODO: why do we need Qunused-arguments for clang?
   # TODO: build with clang
   env.NIX_CFLAGS_COMPILE = toString (lib.optionals stdenv.cc.isClang [ "-Qunused-arguments" ]);
@@ -22,9 +24,9 @@ stdenv.mkDerivation (prev: {
   # TODO: clean up
   patches = [ ./cross.patch ];
 
-  nativeBuildInputs = [ python3 ];
+  nativeBuildInputs = [ python3 openssl ];
 
-  buildInputs = [ openssl ];
+  #buildInputs = [ openssl ];
 
   preConfigure = ''
     patchShebangs configure
