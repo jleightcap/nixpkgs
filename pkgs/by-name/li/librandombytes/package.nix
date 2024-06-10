@@ -1,17 +1,22 @@
 {
   stdenv,
+  lib,
   python3,
   openssl,
   fetchzip,
 }:
 stdenv.mkDerivation (prev: {
   pname = "librandombytes";
-  version = "20230919";
+  version = "20240318";
 
   src = fetchzip {
     url = "https://randombytes.cr.yp.to/librandombytes-${prev.version}.tar.gz";
-    hash = "sha256-wr44x45AwEU1v4kvbmG37npUJGmRprnUtAzQvJJuPyw=";
+    hash = "sha256-LE8iWw7FxckPREyqefgKtslD6CPDsL7VsfHScQ6JmLs=";
   };
+
+  env.NIX_CFLAGS_COMPILE = toString (lib.optionals stdenv.cc.isClang [ "-Qunused-arguments" ]);
+
+  patches = [ ./cross.patch ];
 
   nativeBuildInputs = [ python3 ];
 
@@ -21,9 +26,6 @@ stdenv.mkDerivation (prev: {
     patchShebangs configure
     patchShebangs scripts-build
   '';
-  configurePlatforms = [
-    ""
-    "aarch64"
-    ""
-  ];
+
+  configurePlatforms = [ "aarch64" ];
 })
