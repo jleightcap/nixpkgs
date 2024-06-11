@@ -42,8 +42,7 @@ index 36fcf67..7d28dc5 100755
 +    raise ValueError('did not find a working compiler')
  
  with open('build/%s/scripts/cdcompile' % host,'w') as f:
--  f.write('#!/bin/sh\n')
-+  f.write('#!/bin/sh -x\n')
+   f.write('#!/bin/sh\n')
    f.write('\n')
    f.write('cd "$1"; shift\n')
    f.write('exec %s "$@"\n' % firstcompiler)
