@@ -22,7 +22,10 @@ stdenv.mkDerivation (prev: {
 
   patches = [ ./cross.patch ];
 
-  nativeBuildInputs = [ python3 ];
+  nativeBuildInputs = [ 
+  openssl
+  python3 ];
+  
   buildInputs = [ openssl ];
 
   preConfigure = ''
