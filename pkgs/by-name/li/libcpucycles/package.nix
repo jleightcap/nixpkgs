@@ -2,7 +2,6 @@
   stdenv,
   lib,
   python3,
-  openssl,
   fetchzip,
 }:
 stdenv.mkDerivation (prev: {
@@ -14,8 +13,16 @@ stdenv.mkDerivation (prev: {
     hash = "sha256-Fb73EOHGgEehZJwTCtCG12xwyiqtDXFs9eFDsHBQiDo=";
   };
 
-  # NOTE: default "fortify" sets CFLAGS += -O2 -D_FORTIFY_SOURCE=2
-  # since librandombytes expects -O1, disably the fortify hardening and manually set FORTIFY_SOURCE
+  # NOTE: librandombytes uses a custom Python `./configure`: it does not expect standard
+  # autoconfig --build --host etc. arguments: disable
+  configurePlatforms = [  ];
+
+  # NOTE: the librandombytes library has required specific CFLAGS defined:
+  # https://randombytes.cr.yp.to/librandombytes-20240318/compilers/default.html
+  # - `-O` (alias `-O1`) safe optimization
+  # - `-Qunused-arguments` suppress clang warning
+  # the default "fortify" hardening sets -O2, -D_FORTIFY_SOURCE=2:
+  # since librandombytes uses -O1, we disable the fortify hardening, and then manually re-enable -D_FORTIFY_SOURCE.
   hardeningDisable = [ "fortify" ];
   env.NIX_CFLAGS_COMPILE = toString (
     lib.optionals stdenv.cc.isClang [ "-Qunused-arguments" ]
@@ -25,23 +32,16 @@ stdenv.mkDerivation (prev: {
     ]
   );
 
+  # TODO: Fix this patch for cross comp. later
   # patches = [ ./cross.patch ];
 
-  nativeBuildInputs = [
-    openssl
-    python3
-  ];
-
-  buildInputs = [ openssl ];
+  nativeBuildInputs = [ python3 ];
 
   preConfigure = ''
     patchShebangs configure
     patchShebangs scripts-build
   '';
 
-  # TODO: this should be a variable, if not present, we get:
-  # ValueError: unrecognized argument --build=x86_64-unknown-linux-gnu
-  configurePlatforms = [ "" ];
 
   meta = {
     homepage = "https://cpucycles.cr.yp.to/";
@@ -60,8 +60,9 @@ stdenv.mkDerivation (prev: {
       imadnyc
       jleightcap
     ];
-    # fill in unix or linux?
-    platforms = with lib; [ ];
+    # https://cpucycles.cr.yp.to/install.html should be easy to port to darwin, but currently doesn't work
+    # list of architectures it supports, but currentlly untested with nix https://cpucycles.cr.yp.to/libcpucycles-20240318/cpucycles/options.html
+    platforms = [ "x86_64-linux" "aarch64-linux"];
   };
 
 })
