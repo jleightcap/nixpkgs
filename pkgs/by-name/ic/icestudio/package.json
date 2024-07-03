@@ -25,7 +25,8 @@
     "compiletext": "grunt compiletext",
     "jshint": "grunt jshint",
     "clean": "grunt clean",
-    "getcollection": "grunt getcollection"
+    "getcollection": "grunt getcollection",
+    "postinstall": "scripts/postInstall.sh && grunt getcollection && npmpd && cd app && npm install"
   },
   "devDependencies": {
     "grunt": "^1.6.1",
@@ -43,7 +44,6 @@
     "grunt-wget": "^0.1.3",
     "grunt-zip": "^0.18.2",
     "npm-platform-dependencies": "0.1.0",
-    "nw": "0.83.0",
     "nw-builder": "^4.5.4"
   },
   "darwinDependencies": {
