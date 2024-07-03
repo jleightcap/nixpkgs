@@ -4,6 +4,7 @@
   fetchFromGitHub,
   buildNpmPackage,
   nwjs,
+  makeWrapper,
 }:
 
 let
@@ -28,29 +29,28 @@ let
   };
 in
 
-buildNpmPackage rec {
+stdenv.mkDerivation rec {
   inherit version src;
   pname = "icestudio";
 
   postPatch = ''
-    cp ${./package-lock.json} package-lock.json
-    cp ${./package.json} package.json
+    # cp ${./package-lock.json} package-lock.json
+    # cp ${./package.json} package.json
     patchShebangs scripts/postInstall.sh
-    cp -rv ${app}/node_modules app/
+    cp -r ${app}/node_modules app/
     chmod -R +w app/node_modules
-    ls app/node_modules
   '';
 
-  patches = [ ./dont-download-stuff.patch ];
+  # patches = [ ./dont-download-stuff.patch ];
 
-  npmDepsHash = "sha256-lMnEv4xGfVi0mAmwBPoZu/X9CUYNSwhF5yYolDLBCak=";
+  # npmDepsHash = "sha256-nYAFx16yOhxKcxLqBJDDUu1/m7l1Lfn8t1lg9eCk118=";
 
-  npmFlags = [
-    "--legacy-peer-deps"
-    "--loglevel=verbose"
-  ];
+  # npmFlags = [
+  # "--legacy-peer-deps"
+  # "--loglevel=verbose"
+  # ];
 
-  dontNpmBuild = true;
+  # dontNpmBuild = true;
 
   installPhase = ''
     # npm run buildLinux64
@@ -58,7 +58,10 @@ buildNpmPackage rec {
     makeWrapper ${nwjs}/bin/nw $out/bin/${pname} --add-flags ${app}
   '';
 
-  nativeBuildInputs = [ nwjs ];
+  nativeBuildInputs = [
+    nwjs
+    makeWrapper
+  ];
 
   meta = with lib; {
     description = "Snowflake: Visual editor for open FPGA boards";
