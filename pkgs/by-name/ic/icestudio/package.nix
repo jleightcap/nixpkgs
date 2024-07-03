@@ -53,8 +53,9 @@ buildNpmPackage rec {
   dontNpmBuild = true;
 
   installPhase = ''
-    npm run buildLinux64
-    cp -rv dist/icestudio/linux64/* $out
+    # npm run buildLinux64
+    # cp -rv dist/icestudio/linux64/* $out
+    makeWrapper ${nwjs}/bin/nw $out/bin/${pname} --add-flags ${app}
   '';
 
   nativeBuildInputs = [ nwjs ];
