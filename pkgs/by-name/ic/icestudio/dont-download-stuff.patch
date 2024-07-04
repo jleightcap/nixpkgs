@@ -1,0 +1,56 @@
+diff --git a/Gruntfile.js b/Gruntfile.js
+index 9352d1c..9e5ce70 100644
+--- a/Gruntfile.js
++++ b/Gruntfile.js
+@@ -258,7 +258,6 @@ module.exports = function (grunt) {
+   //-------------------------------------------------------------
+ 
+   //-- Default collection source .zip filename (Ej. v0.3.3.zip)
+-  const DEFAULT_COLLECTION_ZIP_FILE = `v${pkg.collection}.zip`;
+ 
+   //-- The collection .zip file contains all the files in 
+   //-- this folder name:
+@@ -270,9 +269,6 @@ module.exports = function (grunt) {
+     CACHE + "/collection/collection-default.zip";
+ 
+   //-- URL for downloading the .zip file of the Default collection
+-  const DEFAULT_COLLECTION_URL_FILE =
+-    "https://github.com/FPGAwars/collection-default/archive/" +
+-    DEFAULT_COLLECTION_ZIP_FILE;
+ 
+   //-------------------------------------------------------------------------
+   //-- EXEC TASK: 
+@@ -690,8 +686,6 @@ module.exports = function (grunt) {
+   //-- (after npm install is executed)
+   grunt.registerTask("getcollection", [
+     "clean:collection",  //-- Remove previous collection downloaded
+-    "wget:collection",   //-- Download the collection
+-    "unzip"              //-- Unzip the collection (install it)
+   ]);
+ 
+   //-- grunt server
+@@ -791,17 +785,17 @@ module.exports = function (grunt) {
+     wget: {
+ 
+       //-- Download the Default collection from its github repo
+-      collection: {
+-        options: {
+-          overwrite: false,
+-        },
++      // collection: {
++        // options: {
++          // overwrite: false,
++        // },
+ 
+         //-- URL where the src file is located
+-        src: DEFAULT_COLLECTION_URL_FILE,
++        // src: DEFAULT_COLLECTION_URL_FILE,
+ 
+         //-- Write to this new folder with a new name
+-        dest: CACHE_DEFAULT_COLLECTION_FILE,
+-      },
++        // dest: CACHE_DEFAULT_COLLECTION_FILE,
++      // },
+ 
+       //-- Download the python executable. It is used for generating 
+       //-- the Windows installer
