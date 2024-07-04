@@ -6,6 +6,7 @@
   nwjs,
   makeWrapper,
   fetchzip,
+  python3,
 }:
 
 let
@@ -46,33 +47,22 @@ stdenv.mkDerivation rec {
   pname = "icestudio";
 
   postPatch = ''
-    # cp ${./package-lock.json} package-lock.json
-    # cp ${./package.json} package.json
     patchShebangs scripts/postInstall.sh
     cp -r ${app}/node_modules app/
     chmod -R +w app/node_modules
   '';
 
-  # patches = [ ./dont-download-stuff.patch ];
-
-  # npmDepsHash = "sha256-nYAFx16yOhxKcxLqBJDDUu1/m7l1Lfn8t1lg9eCk118=";
-
-  # npmFlags = [
-  # "--legacy-peer-deps"
-  # "--loglevel=verbose"
-  # ];
-
-  # dontNpmBuild = true;
-
   installPhase = ''
-    # npm run buildLinux64
-    # cp -rv dist/icestudio/linux64/* $out
-    makeWrapper ${nwjs}/bin/nw $out/bin/${pname} --add-flags ${app}
+    makeWrapper ${nwjs}/bin/nw $out/bin/${pname} --add-flags ${app} --prefix PATH : "${python3}/bin"
   '';
 
   nativeBuildInputs = [
     nwjs
     makeWrapper
+  ];
+
+  buildInputs = [
+    python3
   ];
 
   meta = with lib; {
