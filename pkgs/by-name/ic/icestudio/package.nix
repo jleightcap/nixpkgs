@@ -24,6 +24,10 @@ let
     npmDepsHash = "sha256-wrJ5VEt97y1k7MnaqOYfktw/xO69qdoEBbKMsd20MzY=";
     dontNpmBuild = true;
     installPhase = ''
+      cat <<EOF> buildinfo.json
+      {"ts":":-)"}
+      EOF
+
       cp -rv . $out
     '';
   };
