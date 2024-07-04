@@ -5,6 +5,7 @@
   buildNpmPackage,
   nwjs,
   makeWrapper,
+  fetchzip,
 }:
 
 let
@@ -17,6 +18,11 @@ let
     hash = "sha256-LjkWje7u7IG9gMrXi6nfHXzD8ZIxm+gybh5+/Sn4PkY=";
   };
 
+  collections = fetchzip {
+    url = "https://github.com/FPGAwars/collection-default/archive/v0.4.1.zip";
+    hash = "sha256-IgVqQnXY9IYax3m6ycuS4TdLEgqLgyMmtRy40kfjT34=";
+  };
+
   app = buildNpmPackage {
     pname = "icestudio-app";
     inherit version src;
@@ -25,8 +31,10 @@ let
     dontNpmBuild = true;
     installPhase = ''
       cat <<EOF> buildinfo.json
-      {"ts":":-)"}
+        {"ts":"-nixos"}
       EOF
+
+      cp -rv ${collections} resources/collection/
 
       cp -rv . $out
     '';
