@@ -46,12 +46,6 @@ stdenv.mkDerivation rec {
   inherit version src;
   pname = "icestudio";
 
-  postPatch = ''
-    patchShebangs scripts/postInstall.sh
-    cp -r ${app}/node_modules app/
-    chmod -R +w app/node_modules
-  '';
-
   installPhase = ''
     makeWrapper ${nwjs}/bin/nw $out/bin/${pname} --add-flags ${app} --prefix PATH : "${python3}/bin"
   '';
