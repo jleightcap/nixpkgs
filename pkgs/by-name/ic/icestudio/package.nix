@@ -7,6 +7,7 @@
   makeWrapper,
   fetchzip,
   python3,
+  python3Packages,
 }:
 
 let
@@ -30,6 +31,7 @@ let
     sourceRoot = "${src.name}/app";
     npmDepsHash = "sha256-wrJ5VEt97y1k7MnaqOYfktw/xO69qdoEBbKMsd20MzY=";
     dontNpmBuild = true;
+    patches = [ ./python-tools-location.patch ];
     installPhase = ''
       cat <<EOF> buildinfo.json
         {"ts":"-nixos"}
@@ -47,7 +49,7 @@ stdenv.mkDerivation rec {
   pname = "icestudio";
 
   installPhase = ''
-    makeWrapper ${nwjs}/bin/nw $out/bin/${pname} --add-flags ${app} --prefix PATH : "${python3}/bin"
+    makeWrapper ${nwjs}/bin/nw $out/bin/${pname} --add-flags ${app} --prefix PATH : "${python3}/bin"  --set PYTHON_DIR "${python3}/bin/python3" --set PIP_DIR "${python3Packages.pip}/bin/pip"
   '';
 
   nativeBuildInputs = [
@@ -55,9 +57,7 @@ stdenv.mkDerivation rec {
     makeWrapper
   ];
 
-  buildInputs = [
-    python3
-  ];
+  buildInputs = [ python3 ];
 
   meta = with lib; {
     description = "Snowflake: Visual editor for open FPGA boards";

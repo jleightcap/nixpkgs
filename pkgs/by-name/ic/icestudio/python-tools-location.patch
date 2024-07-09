@@ -1,0 +1,13 @@
+diff --git a/scripts/services/profile.js b/scripts/services/profile.js
+index ef32eec..1f4c9ad 100644
+--- a/scripts/services/profile.js
++++ b/scripts/services/profile.js
+@@ -67,7 +69,7 @@ angular.module('icestudio')
+             'lastVersionReview':data.lastVersionReview || false,
+             'loggingEnabled':data.loggingEnabled || false,
+             'loggingFile':data.loggingFile || '',
+-            'pythonEnv':data.pythonEnv || {'python':'','pip':''}
++            'pythonEnv':data.pythonEnv || {'python': process.env.PYTHON_DIR,'pip':process.env.PIP_DIR}
+           };
+           
+           if(self.data.pythonEnv.python.length>0){
