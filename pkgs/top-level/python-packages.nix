@@ -13672,6 +13672,8 @@ self: super: with self; {
 
   reproject = callPackage ../development/python-modules/reproject { };
 
+  reprint = callPackage ../development/python-modules/reprint { };
+
   reprshed = callPackage ../development/python-modules/reprshed { };
 
   reptor = callPackage ../development/python-modules/reptor { };
