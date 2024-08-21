@@ -1,44 +1,43 @@
 {
   buildPythonPackage,
-  fetchPypi,
+  fetchFromSourcehut,
+  setuptools-rust,
+  cargo,
+  llvmPackages,
+  libxml2,
+  zlib,
+  rustc,
+  rustPlatform,
   lib,
-  python,
-  stdenv,
-  unzip,
 }:
 
 buildPythonPackage rec {
   pname = "verilogae";
-  version = "1.0.0";
+  version = "0.9-beta-8";
 
-  src = fetchPypi {
-    inherit pname version;
-    python = "cp311";
-    abi = "cp311";
-    platform = "manylinux_2_17_x86_64.manylinux2014_x86_64";
-    format = "wheel";
-    customPath = "aa/a6/9daea00745844faba44c2917c66838adfc315269f38518ecca49e6eb5fb5";
-    sha256 = "QsEVq/4c44xCkovOhXOj8Zh6rp4Ipq+NGjbTW25Fd6E=";
+  src = fetchFromSourcehut {
+    owner = "~dspom";
+    repo = "OpenVAF";
+    rev = "b800153e84a8a640b07048d580fabafc25bbc841";
+    hash = "sha256-NKiJrXnxwghNYtKL4s3YjvQd/r3QWe5saCYp4N4aQ8w=";
   };
 
-  format = "other";
+  cargoDeps = rustPlatform.importCargoLock {
+    lockFile = "${src}/Cargo.lock";
+    outputHashes = {
+      "salsa-0.17.0-pre.2" = "sha256-6GssvV76lFr5OzAUekz2h6f82Tn7usz5E8MSZ5DmgJw=";
+    };
+  };
 
-  unpackPhase = ''
-    tmp_dir=$(mktemp -d)
-    mkdir -p $out/lib/python3.11/site-packages
-    ${unzip}/bin/unzip $src -d $tmp_dir
-    mv $tmp_dir/* $out/lib/python3.11/site-packages/
-  '';
 
-  installCheckPhase = ''
-    export PYTHONPATH="$out/lib/python3.11/site-packages:$PYTHONPATH"
-  '';
-
-  nativeBuildInputs = [ unzip ];
-
-  LD_LIBRARY_PATH = "${stdenv.cc.cc.lib}/lib/";
-
-  pythonImportsCheck = [ "verilogae" ];
+  nativeBuildInputs = [
+    cargo
+    rustPlatform.cargoSetupHook
+    rustc
+    llvmPackages.llvm.dev
+    llvmPackages.clang
+    setuptools-rust
+  ];
 
   meta = {
     description = "Verilog-A tool useful for compact model parameter extraction";
