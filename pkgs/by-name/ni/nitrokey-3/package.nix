@@ -37,8 +37,8 @@ let
 
   cross = import ../../../.. {
     system = hostPlatform.system;
-    # TODO: use the `board` variable here to configure the appropriate `crossSystem`
-    crossSystem = lib.systems.examples.armhf-embedded // {
+    crossSystem = {
+      config = "arm-none-eabi";
       rust = {
         inherit (buildTarget) rustcTarget;
       };
