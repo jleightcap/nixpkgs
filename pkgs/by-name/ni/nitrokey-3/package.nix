@@ -6,7 +6,6 @@
   fetchpatch,
   cargo-binutils,
   flip-link,
-  gcc-arm-embedded,
   python3,
   llvmPackages,
   board ? "nk3xn",
@@ -21,17 +20,17 @@ let
       "nk3xn" = {
         makeTarget = "build-nk3xn";
         makefilePath = "runners/embedded";
-        crossSystem = "armv7a-none-eabihf"
+        rustcTarget = "thumbv8em-none-eabi";
       };
       "nk3am" = {
         makeTarget = "build-nk3am.bl";
         makefilePath = "runners/embedded";
-        crossSystem = null;
+        rustcTarget = "thumbv7em-none-eabihf";
       };
       "nkpk" = {
         makeTarget = "build";
         makefilePath = "runners/nkpk";
-        crossSystem = null;
+        rustcTarget = "thumbv7em-none-eabihf";
       };
     }
     ."${board}";
@@ -39,7 +38,11 @@ let
   cross = import ../../../.. {
     system = hostPlatform.system;
     # TODO: use the `board` variable here to configure the appropriate `crossSystem`
-    crossSystem = buildTarget.crossSytem;
+    crossSystem = lib.systems.examples.armhf-embedded // {
+      rust = {
+        inherit (buildTarget) rustcTarget;
+      };
+    };
   };
   inherit (cross) rustPlatform;
 
@@ -54,29 +57,6 @@ let
     rev = "v${version}";
     sha256 = "sha256-zl3kSgMJrfn7RAN3sabZvCp6hqWc2Ffma29KL5eP6kg=";
   };
-
-  /*
-    rustPlatform = makeRustPlatform rec {
-      # Version of nighly build same as Dockerfile
-      # https://github.com/Nitrokey/nitrokey-3-firmware/blob/main/Dockerfile#L9
-      # TODO: remove nightly
-      rustc = rust-bin.nightly."2024-04-01".default.override {
-        # We add the same extensions and targets as the upstream specifies:
-        # https://github.com/Nitrokey/nitrokey-3-firmware/blob/main/rust-toolchain.toml
-
-        # We add rust-src to extensions because otherwise we get a compilation error.
-        # rust-src is added to the toolchain in the Dockerfile
-        # https://github.com/Nitrokey/nitrokey-3-firmware/blob/main/Dockerfile#L10
-        # TODO: read from the rust-toolchain.toml in upstream repo and add rust-src with overlay?
-        # Reading the extensions from the developers toolchain
-        extensions = (builtins.fromTOML (builtins.readFile("${src}/rust-toolchain.toml"))).toolchain.components ++ [ "rust-src" ];
-        # Also getting the targets from the toolchain
-        targets = (builtins.fromTOML (builtins.readFile("${src}/rust-toolchain.toml"))).toolchain.targets;
-      };
-      cargo = rustc;
-    };
-  */
-
 in
 
 # TODO: need any asserts for the configured crossSystem?
@@ -92,7 +72,6 @@ rustPlatform.buildRustPackage rec {
   nativeBuildInputs = [
     cargo-binutils
     flip-link
-    gcc-arm-embedded
     llvmPackages.clang
     python3
   ];
