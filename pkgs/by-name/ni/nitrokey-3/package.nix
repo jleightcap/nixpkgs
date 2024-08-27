@@ -7,6 +7,8 @@
   cargo-binutils,
   flip-link,
   python3,
+  strace,
+  lld,
   llvmPackages,
   board ? "nk3am",
   provisioner ? false,
@@ -37,6 +39,8 @@ let
     system = hostPlatform.system;
     crossSystem = lib.systems.examples.arm-embedded // {
       rust.rustcTarget = buildTarget.targetPlatform;
+      # copied from https://github.com/rust-lang/compiler-builtins/blob/master/thumbv7m-linux-eabi.json
+      rust.platform = lib.importJSON ./platform.json;
     };
   };
   inherit (cross) rustPlatform;
@@ -86,8 +90,20 @@ rustPlatform.buildRustPackage rec {
 
   dontCargoBuild = true;
   nativeBuildInputs = [
+    # (flip-link.overrideAttrs (old: {
+    #   postFixup = ''
+    #     mv $out/bin/flip-link $out/bin/.flip-link-wrapped
+    #     cat << EOF > $out/bin/flip-link
+    #     #!/bin/sh
+    #     ${strace}/bin/strace -ff $out/bin/.flip-link-wrapped "$@"
+    #     EOF
+    #     chmod +x $out/bin/flip-link
+    #   '';
+    # }))
     flip-link
-    # llvmPackages.llvm
+    llvmPackages.llvm
+    cargo-binutils
+    lld
     python3
   ];
 
@@ -102,6 +118,7 @@ rustPlatform.buildRustPackage rec {
   # $(MAKE) -C runners/embedded build-all FEATURES=test
   # https://github.com/Nitrokey/nitrokey-3-firmware/blob/main/Makefile#L18-L33
   buildPhase = ''
+    cat /build/.cargo/config
     make -C ${buildTarget.makefilePath} ${buildTarget.makeTarget} \
     FEATURES=${lib.optionalString provisioner "provisioner"}
   '';
