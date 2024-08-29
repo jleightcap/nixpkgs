@@ -1,10 +1,9 @@
 {
   lib,
   hostPlatform,
-  makeRustPlatform,
   fetchFromGitHub,
-  fetchpatch,
-  cargo-binutils,
+  writeShellScriptBin,
+  gcc,
   flip-link,
   python3,
   llvmPackages,
@@ -39,6 +38,14 @@ let
       rust.rustcTarget = buildTarget.targetPlatform;
     };
   };
+
+  # we need to manually pass the target platform's rust-lld for now
+  # it is called by flip-linker and this will work as long as cargo-binutils
+  # is not installed, as it provides `rust-lld` as well.
+  rust-lld = writeShellScriptBin "rust-lld" ''
+    ${cross.rustPlatform.rust.rustc.llvmPackages.lld}/bin/ld.lld "$@"
+  '';
+
   inherit (cross) rustPlatform;
 in
 rustPlatform.buildRustPackage rec {
@@ -87,8 +94,10 @@ rustPlatform.buildRustPackage rec {
   dontCargoBuild = true;
   nativeBuildInputs = [
     flip-link
-    # llvmPackages.llvm
     python3
+    rust-lld
+    # for c++filt
+    gcc
   ];
 
   # lld: error: unknown argument '-Wl,--undefined=AUDITABLE_VERSION_INFO'
