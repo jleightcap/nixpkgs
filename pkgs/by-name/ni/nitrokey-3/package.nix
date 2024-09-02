@@ -101,7 +101,7 @@ rustPlatform.buildRustPackage rec {
   dontCargoBuild = true;
   nativeBuildInputs = [
     flip-link
-    rust-lld
+    # rust-lld
     cargo-binutils
     # cargo-objcopy
     python3
