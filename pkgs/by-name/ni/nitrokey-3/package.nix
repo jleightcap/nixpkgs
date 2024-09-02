@@ -7,7 +7,8 @@
   flip-link,
   python3,
   llvmPackages,
-  board ? "nk3am",
+  cargo-binutils,
+  board ? "nkpk",
   provisioner ? false,
   develop ? false,
 }:
@@ -45,6 +46,12 @@ let
   rust-lld = writeShellScriptBin "rust-lld" ''
     ${cross.rustPlatform.rust.rustc.llvmPackages.lld}/bin/ld.lld "$@"
   '';
+  # cargo-objcopy = writeShellScriptBin "cargo-objcopy" ''
+  #   ${cross.rustPlatform.rust.rustc.llvmPackages.llvm}/bin/llvm-objcopy "$@"
+  # '';
+  # cargo-objcopy = writeShellScriptBin "cargo-objcopy" ''
+  #   ${cross.cargo-binutils}/bin/cargo-objcopy "$@"
+  # '';
 
   inherit (cross) rustPlatform;
 in
@@ -94,8 +101,10 @@ rustPlatform.buildRustPackage rec {
   dontCargoBuild = true;
   nativeBuildInputs = [
     flip-link
-    python3
     rust-lld
+    cargo-binutils
+    # cargo-objcopy
+    python3
     # for c++filt
     gcc
   ];

@@ -1,4 +1,4 @@
-{ lib, rustPlatform, fetchCrate }:
+{ lib, rustPlatform, rustc, fetchCrate, }:
 
 rustPlatform.buildRustPackage rec {
   pname = "cargo-binutils";
@@ -10,6 +10,21 @@ rustPlatform.buildRustPackage rec {
   };
 
   cargoHash = "sha256-lZJcsCg7e5ZmClnzKFjm/roXBIyhkPTzS7R6BTmcNIk=";
+
+  buildInputs = [
+    rustc.llvmPackages.llvm
+  ];
+
+  patchPhase = ''
+    substituteInPlace src/tool.rs \
+      --replace-fail 'rustlib()?;' 'rustlib()?;
+       path = Path::new("${rustc.llvmPackages.llvm}/bin").to_path_buf();'
+    substituteInPlace src/tool.rs \
+      --replace-fail 'use crate::rustc::rustlib;' 'use crate::rustc::rustlib;
+      use std::path::Path;'
+    substituteInPlace src/lib.rs \
+      --replace-fail '#![deny(warnings)]' ' '
+  '';
 
   meta = with lib; {
     description = "Cargo subcommands to invoke the LLVM tools shipped with the Rust toolchain";
