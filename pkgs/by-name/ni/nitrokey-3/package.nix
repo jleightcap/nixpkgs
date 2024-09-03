@@ -8,7 +8,7 @@
   python3,
   llvmPackages,
   cargo-binutils,
-  board ? "nkpk",
+  board ? "nk3xn",
   provisioner ? false,
   develop ? false,
 }:

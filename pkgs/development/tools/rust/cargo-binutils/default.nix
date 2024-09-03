@@ -17,11 +17,20 @@ rustPlatform.buildRustPackage rec {
 
   patchPhase = ''
     substituteInPlace src/tool.rs \
-      --replace-fail 'rustlib()?;' 'rustlib()?;
-       path = Path::new("${rustc.llvmPackages.llvm}/bin").to_path_buf();'
+      --replace-fail 'rustlib()?;' 'PathBuf::new();
+    match self {
+        Tool::Lld => {
+            path = PathBuf::from("${rustc.llvmPackages.lld}/bin");
+        }
+        _ => {
+            path = PathBuf::from("${rustc.llvmPackages.llvm}/bin");
+        }
+    }'
     substituteInPlace src/tool.rs \
       --replace-fail 'use crate::rustc::rustlib;' 'use crate::rustc::rustlib;
       use std::path::Path;'
+        substituteInPlace src/tool.rs \
+      --replace-fail 'rust-lld' 'lld'
     substituteInPlace src/lib.rs \
       --replace-fail '#![deny(warnings)]' ' '
   '';
