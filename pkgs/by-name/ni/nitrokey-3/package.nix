@@ -37,7 +37,6 @@ let
     system = hostPlatform.system;
     crossSystem = lib.systems.examples.arm-embedded // {
       rust.rustcTarget = buildTarget.targetPlatform;
-      rust.platform = lib.importJSON ./target-spec.json;
     };
   };
 
@@ -60,6 +59,7 @@ rustPlatform.buildRustPackage rec {
   pname = "nitrokey-3-${board}${lib.optionalString provisioner "-provisioner"}-firmware";
   version = "1.7.2";
 
+  env.RUST_BOOTSTRAP = 1;
   src = fetchFromGitHub {
     owner = "Nitrokey";
     repo = "nitrokey-3-firmware";
