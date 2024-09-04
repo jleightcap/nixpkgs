@@ -18,7 +18,7 @@ let
       "nk3xn" = {
         makeTarget = "build-nk3xn";
         makefilePath = "runners/embedded";
-        targetPlatform = "thumbv8em-none-eabi";
+        targetPlatform = "thumbv8m.main-none-eabi";
       };
       "nk3am" = {
         makeTarget = "build-nk3am.bl";
@@ -37,6 +37,7 @@ let
     system = hostPlatform.system;
     crossSystem = lib.systems.examples.arm-embedded // {
       rust.rustcTarget = buildTarget.targetPlatform;
+      rust.platform = lib.importJSON ./target-spec.json;
     };
   };
 
