@@ -29,7 +29,6 @@ buildPythonPackage rec {
     };
   };
 
-
   nativeBuildInputs = [
     cargo
     rustPlatform.cargoSetupHook
@@ -38,6 +37,8 @@ buildPythonPackage rec {
     llvmPackages.clang
     setuptools-rust
   ];
+
+  pythonImportsCheck = [ "verilogae" ];
 
   meta = {
     description = "Verilog-A tool useful for compact model parameter extraction";
@@ -48,5 +49,6 @@ buildPythonPackage rec {
       jleightcap
     ];
     platforms = lib.platforms.linux;
+    sourceProvenance = [ lib.sourceTypes.binaryBytecode ];
   };
 }

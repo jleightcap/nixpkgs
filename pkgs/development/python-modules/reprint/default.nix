@@ -1,4 +1,5 @@
 {
+  backports-shutil-get-terminal-size,
   buildPythonPackage,
   colorama,
   fetchFromGitHub,
@@ -18,14 +19,18 @@ buildPythonPackage rec {
     rev = "${version}";
     hash = "sha256-99FC12LcvvRRwNAxDSvWo9vRYmieL0JHSaCJqO/UGEs=";
   };
-  doCheck = false; # Disable tests due to unnecessary dependency on backports.shutil_get_terminal_size
 
-  build-system = [ setuptools ];
+  buildInputs = [
+    backports-shutil-get-terminal-size
+    setuptools
+  ];
 
   dependencies = [
     colorama
     six
   ];
+
+  doCheck = false; # Skipping test phase as there are no tests
 
   pythonImportsCheck = [ "reprint" ];
 
