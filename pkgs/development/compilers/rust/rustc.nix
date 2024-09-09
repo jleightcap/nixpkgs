@@ -1,32 +1,56 @@
-{ lib, stdenv, removeReferencesTo, pkgsBuildBuild, pkgsBuildHost, pkgsBuildTarget, targetPackages
-, llvmShared, llvmSharedForBuild, llvmSharedForHost, llvmSharedForTarget, llvmPackages
-, runCommandLocal, fetchurl, file, python3
-, darwin, cargo, cmake, rustc, rustfmt
-, pkg-config, openssl, xz, zlib
-, bintools
-, libiconv
-, which, libffi
-, withBundledLLVM ? false
-, enableRustcDev ? true
-, version
-, sha256
-, patches ? []
-, fd
-, ripgrep
-, wezterm
-, firefox
-, thunderbird
-# This only builds std for target and reuses the rustc from build.
-, fastCross
-, lndir
-, makeWrapper
+{
+  lib,
+  stdenv,
+  removeReferencesTo,
+  pkgsBuildBuild,
+  pkgsBuildHost,
+  pkgsBuildTarget,
+  targetPackages,
+  llvmShared,
+  llvmSharedForBuild,
+  llvmSharedForHost,
+  llvmSharedForTarget,
+  llvmPackages,
+  runCommandLocal,
+  fetchurl,
+  file,
+  python3,
+  darwin,
+  cargo,
+  cmake,
+  rustc,
+  rustfmt,
+  pkg-config,
+  openssl,
+  xz,
+  zlib,
+  bintools,
+  libiconv,
+  which,
+  libffi,
+  withBundledLLVM ? false,
+  enableRustcDev ? true,
+  version,
+  sha256,
+  formats,
+  patches ? [ ],
+  fd,
+  ripgrep,
+  wezterm,
+  firefox,
+  thunderbird,
+  # This only builds std for target and reuses the rustc from build.
+  fastCross,
+  lndir,
+  makeWrapper,
 }:
 
 let
-  inherit (lib) optionals optional optionalString concatStringsSep;
+  inherit (lib) optionals optional optionalString;
   inherit (darwin.apple_sdk.frameworks) Security;
   useLLVM = stdenv.targetPlatform.useLLVM or false;
-in stdenv.mkDerivation (finalAttrs: {
+in
+stdenv.mkDerivation (finalAttrs: {
   pname = "${targetPackages.stdenv.cc.targetPrefix}rustc";
   inherit version;
 
@@ -61,20 +85,24 @@ in stdenv.mkDerivation (finalAttrs: {
   # but it does support checking these idiosyncratic PKG_CONFIG_${TRIPLE}
   # environment variables.
   # [1]: https://github.com/rust-lang/pkg-config-rs/issues/53
-  "PKG_CONFIG_${builtins.replaceStrings ["-"] ["_"] stdenv.buildPlatform.rust.rustcTarget}" =
-    "${pkgsBuildHost.stdenv.cc.targetPrefix}pkg-config";
+  "PKG_CONFIG_${
+    builtins.replaceStrings [ "-" ] [ "_" ] stdenv.buildPlatform.rust.rustcTarget
+  }" = "${pkgsBuildHost.stdenv.cc.targetPrefix}pkg-config";
 
   NIX_LDFLAGS = toString (
-       # when linking stage1 libstd: cc: undefined reference to `__cxa_begin_catch'
-       # This doesn't apply to cross-building for FreeBSD because the host
-       # uses libstdc++, but the target (used for building std) uses libc++
-      optional (stdenv.isLinux && !withBundledLLVM && !stdenv.targetPlatform.isFreeBSD && !useLLVM)
-        "--push-state --as-needed -lstdc++ --pop-state"
-    ++ optional (stdenv.isLinux && !withBundledLLVM && !stdenv.targetPlatform.isFreeBSD && useLLVM)
+    # when linking stage1 libstd: cc: undefined reference to `__cxa_begin_catch'
+    # This doesn't apply to cross-building for FreeBSD because the host
+    # uses libstdc++, but the target (used for building std) uses libc++
+    optional (
+      stdenv.isLinux && !withBundledLLVM && !stdenv.targetPlatform.isFreeBSD && !useLLVM
+    ) "--push-state --as-needed -lstdc++ --pop-state"
+    ++
+      optional (stdenv.isLinux && !withBundledLLVM && !stdenv.targetPlatform.isFreeBSD && useLLVM)
         "--push-state --as-needed -L${llvmPackages.libcxx}/lib -lc++ -lc++abi -lLLVM-${lib.versions.major llvmPackages.llvm.version} --pop-state"
     ++ optional (stdenv.isDarwin && !withBundledLLVM) "-lc++ -lc++abi"
     ++ optional stdenv.isFreeBSD "-rpath ${llvmPackages.libunwind}/lib"
-    ++ optional stdenv.isDarwin "-rpath ${llvmSharedForHost.lib}/lib");
+    ++ optional stdenv.isDarwin "-rpath ${llvmSharedForHost.lib}/lib"
+  );
 
   # Increase codegen units to introduce parallelism within the compiler.
   RUSTFLAGS = "-Ccodegen-units=10";
@@ -98,102 +126,134 @@ in stdenv.mkDerivation (finalAttrs: {
       cxxForHost = cxxPrefixForStdenv pkgsBuildHost.targetPackages.stdenv;
       ccForTarget = ccPrefixForStdenv pkgsBuildTarget.targetPackages.stdenv;
       cxxForTarget = cxxPrefixForStdenv pkgsBuildTarget.targetPackages.stdenv;
+      formatter = formats.toml { };
+      rustcConfig = {
+        profile = "dist";
+        # See ${src}/src/bootstrap/src/utils/change_tracker.rs
+        change-id = 125535;
+        llvm =
+          {
+            link-shared = !withBundledLLVM;
+          }
+          // (lib.optionalAttrs useLLVM {
+            llvm-libunwind = if withBundledLLVM then "in-tree" else "system";
+            use-libcxx = true;
+          });
+        build =
+          {
+            build = build;
+            host = [ host ];
+            # std is built for all platforms in `target`.
+            target = (
+              [ target ]
+              # Other targets that don't need any extra dependencies to build.
+              ++ lib.optional (!fastCross) "wasm32-unknown-unknown"
+            );
+            cargo = "${cargo}/bin/cargo";
+            rustc = "${rustc}/bin/rustc";
+            docs = !stdenv.targetPlatform.rust.isNoStdTarget;
+            vendor = true;
+            tools = [
+              "rustc"
+              "rustdoc"
+              "rust-analyzer-proc-macro-srv"
+            ];
+            profiler = (
+              stdenv.isLinux && !stdenv.targetPlatform.isRedox && !(stdenv.targetPlatform.useLLVM or false)
+            );
+          }
+          // (lib.optionalAttrs (!(finalAttrs.src.passthru.isReleaseTarball or false)) {
+            # release tarballs vendor the rustfmt source; when
+            # git-bisect'ing from upstream's git repo we must prevent
+            # attempts to download the missing source tarball
+            rustfmt = "${rustfmt}/bin/rustfmt";
+          });
+        install = {
+          prefix = "@out@";
+          sysconfdir = "@out@/etc";
+        };
+        rust = {
+          channel = "stable";
+          rpath = true;
+          # Since fastCross only builds std, it doesn't make sense (and
+          # doesn't work) to build a linker.
+          llvm-bitcode-linker = !fastCross;
+          jemalloc = (stdenv.isDarwin && stdenv.isx86_64);
+        };
+        target =
+          {
+            "${host}" =
+              {
+                cc = "${ccForHost}";
+                cxx = "${cxxForHost}";
+                linker = "${ccForHost}";
+                crt-static = stdenv.hostPlatform.isStatic;
+              }
+              // (lib.optionalAttrs (!withBundledLLVM) {
+                llvm-config = "${llvmSharedForHost.dev}/bin/llvm-config";
+              })
+              // (lib.optionalAttrs stdenv.hostPlatform.isMusl {
+                musl-root = pkgsBuildHost.targetPackages.stdenv.cc.libc;
+              });
+          }
+          //
+          # (build!=target!=host): When cross-building a compiler we need to 
+          # add the build platform as well so rustc can compile build.rs
+          # scripts.
+          (lib.optionalAttrs
+            (stdenv.buildPlatform != stdenv.targetPlatform && stdenv.buildPlatform != stdenv.hostPlatform)
+            {
+              "${build}" =
+                {
+                  cc = "${ccForBuild}";
+                  cxx = "${cxxForBuild}";
+                  linker = "${ccForBuild}";
+                  crt-static = stdenv.hostPlatform.isStatic;
+                }
+                // (lib.optionalAttrs (!withBundledLLVM) {
+                  llvm-config = "${llvmSharedForBuild.dev}/bin/llvm-config";
+                })
+                // (lib.optionalAttrs stdenv.buildPlatform.isMusl {
+                  musl-root = pkgsBuildBuild.targetPackages.stdenv.cc.libc;
+                });
+            }
+          )
+          //
+            # (host!=target): When building a cross-targeting compiler we
+            # need to add the host platform as well so rustc can compile
+            # build.rs scripts.
+            (lib.optionalAttrs (stdenv.hostPlatform != stdenv.targetPlatform) {
+              "${target}" =
+                {
+                  cc = "${ccForTarget}";
+                  cxx = "${cxxForTarget}";
+                  linker = "${ccForTarget}";
+                  crt-static = stdenv.targetPlatform.isStatic;
+                }
+                // (lib.optionalAttrs (!withBundledLLVM) {
+                  llvm-config = "${llvmSharedForTarget.dev}/bin/llvm-config";
+                })
+                // (lib.optionalAttrs stdenv.targetPlatform.isMusl {
+                  musl-root = pkgsBuildTarget.targetPackages.stdenv.cc.libc;
+                });
+            });
+      };
+      renderedConfig = formatter.generate "${finalAttrs.pname}-config.toml" rustcConfig;
     in
     ''
       runHook preConfigure
-      cat << EOF > config.toml
-      # ${build} ${host} ${target}
-      profile = "dist"
-      ''
-
-     + lib.optionalString (!withBundledLLVM)
-      ''
-      [llvm]
-      link-shared = true
-      '' +
-      ''
-      [build]
-      build = "${build}"
-      host = ["${host}"]
-      target = ["${target}" ${lib.optionalString (!fastCross) '', "wasm32-unknown-unknown"''}]
-      cargo = "${cargo}/bin/cargo"
-      rustc = "${rustc}/bin/rustc"
-      '' +
-      lib.optionalString (stdenv.targetPlatform.rust.isNoStdTarget)
-      ''
-      docs = false
-      '' +
-      ''vendor = true
-      ''
-      +
-      lib.optionalString (
-        !(finalAttrs.src.passthru.isReleaseTarball or false)
-      )
-      ''
-      rustfmt = "${rustfmt}/bin/rustfmt"
-      ''
-      +
-      ''
-      tools = ["rustc", "rustdoc", "rust-analyzer-proc-macro-srv"]
-
-      profiler = true
-
-      [install]
-      prefix = "${placeholder "out"}"
-      sysconfdir = "${placeholder "out"}/etc"
-
-      [rust]
-      channel = "stable"
-
-      rpath = true
-      ''
-    + lib.optionalString fastCross
-      ''
-      llvm-bitcode-linker = false
-      ''
-    + ''
-      [target.${host}]
-      cc = "${ccForHost}"
-      cxx = "${cxxForHost}"
-      linker = "${ccForHost}"
-      '' + lib.optionalString (!withBundledLLVM)
-      ''llvm-config = "${llvmSharedForHost.dev}/bin/llvm-config"
-      '' +
-      ''
-      crt-static = ${lib.boolToString stdenv.hostPlatform.isStatic}
-      ''
-    + lib.optionalString (stdenv.buildPlatform != stdenv.targetPlatform && stdenv.buildPlatform != stdenv.hostPlatform) (''
-      [target.${build}]
-      cc = "${ccForBuild}"
-      cxx = "${cxxForBuild}"
-      linker = "${ccForBuild}"
-      '' + lib.optionalString (!withBundledLLVM)
-      ''llvm-config = "${llvmSharedForBuild.dev}/bin/llvm-config"
-      '' +
-      ''
-      crt-static = ${lib.boolToString stdenv.hostPlatform.isStatic}
-    '')
-    + lib.optionalString (stdenv.hostPlatform != stdenv.targetPlatform) (''
-      [target.${if lib.strings.hasInfix "." target then ''"${target}"'' else target}]
-      cc = "${ccForTarget}"
-      cxx = "${cxxForTarget}"
-      linker = "${ccForTarget}"
-      '' + lib.optionalString (!withBundledLLVM)
-      ''llvm-config = "${llvmSharedForTarget.dev}/bin/llvm-config"
-      '' +
-      ''
-      crt-static = ${lib.boolToString stdenv.targetPlatform.isStatic}
-    '') +
-    ''
-      EOF
-
+      echo '${builtins.toJSON rustcConfig}'
+      substituteAll ${renderedConfig} config.toml
+      echo 'Using the following `config.toml` from `${renderedConfig}`'
       cat config.toml
       runHook postConfigure
     '';
 
   # if we already have a rust compiler for build just compile the target std
   # library and reuse compiler
-  buildPhase = if fastCross then "
+  buildPhase =
+    if fastCross then
+      "
     runHook preBuild
 
     mkdir -p build/${stdenv.hostPlatform.rust.rustcTargetSpec}/stage0-{std,rustc}/${stdenv.hostPlatform.rust.rustcTargetSpec}/release/
@@ -205,111 +265,146 @@ in stdenv.mkDerivation (finalAttrs: {
     python ./x.py --keep-stage=0 --stage=1 build library
 
     runHook postBuild
-  " else ''
-    python ./x.py build --stage 2
-  '';
+  "
+    else
+      ''
+        python ./x.py build --stage 2
+      '';
 
-  installPhase = if fastCross then ''
-    runHook preInstall
+  installPhase =
+    if fastCross then
+      ''
+        runHook preInstall
 
-    python ./x.py --keep-stage=0 --stage=1 install library/std
-    mkdir -v $out/bin $doc $man
-    ln -s ${rustc.unwrapped}/bin/{rustc,rustdoc} $out/bin
-    rm -rf -v $out/lib/rustlib/{manifest-rust-std-,}${stdenv.hostPlatform.rust.rustcTargetSpec}
-    ln -s ${rustc.unwrapped}/lib/rustlib/{manifest-rust-std-,}${stdenv.hostPlatform.rust.rustcTargetSpec} $out/lib/rustlib/
-    echo rust-std-${stdenv.hostPlatform.rust.rustcTargetSpec} >> $out/lib/rustlib/components
-    lndir ${rustc.doc} $doc
-    lndir ${rustc.man} $man
+        python ./x.py --keep-stage=0 --stage=1 install library/std
+        mkdir -v $out/bin $doc $man
+        ln -s ${rustc.unwrapped}/bin/{rustc,rustdoc} $out/bin
+        rm -rf -v $out/lib/rustlib/{manifest-rust-std-,}${stdenv.hostPlatform.rust.rustcTargetSpec}
+        ln -s ${rustc.unwrapped}/lib/rustlib/{manifest-rust-std-,}${stdenv.hostPlatform.rust.rustcTargetSpec} $out/lib/rustlib/
+        echo rust-std-${stdenv.hostPlatform.rust.rustcTargetSpec} >> $out/lib/rustlib/components
+        lndir ${rustc.doc} $doc
+        lndir ${rustc.man} $man
 
-    runHook postInstall
-  '' else ''
-    python ./x.py install
-  '';
+        runHook postInstall
+      ''
+    else
+      ''
+        python ./x.py install
+      '';
 
   # the rust build system complains that nix alters the checksums
   dontFixLibtool = true;
 
   inherit patches;
 
-  postPatch = ''
-    patchShebangs src/etc
+  postPatch =
+    ''
+      patchShebangs src/etc
 
-    # rust-lld is the name rustup uses for its bundled lld, so that it
-    # doesn't conflict with any system lld.  This is not an
-    # appropriate default for Nixpkgs, where there is no rust-lld.
-    substituteInPlace compiler/rustc_target/src/spec/*/*.rs \
-      --replace-quiet '"rust-lld"' '"lld"'
+      # rust-lld is the name rustup uses for its bundled lld, so that it
+      # doesn't conflict with any system lld.  This is not an
+      # appropriate default for Nixpkgs, where there is no rust-lld.
+      substituteInPlace compiler/rustc_target/src/spec/*/*.rs \
+        --replace-quiet '"rust-lld"' '"lld"'
 
-    ${optionalString (!withBundledLLVM) "rm -rf src/llvm"}
+      ${optionalString (!withBundledLLVM) "rm -rf src/llvm"}
 
-    # Useful debugging parameter
-    # export VERBOSE=1
-  '' + lib.optionalString (stdenv.isDarwin && stdenv.isx86_64) ''
-    # See https://github.com/jemalloc/jemalloc/issues/1997
-    # Using a value of 48 should work on both emulated and native x86_64-darwin.
-    export JEMALLOC_SYS_WITH_LG_VADDR=48
-  '' + lib.optionalString (!(finalAttrs.src.passthru.isReleaseTarball or false)) ''
-    mkdir .cargo
-    cat > .cargo/config <<\EOF
-    [source.crates-io]
-    replace-with = "vendored-sources"
-    [source.vendored-sources]
-    directory = "vendor"
-    EOF
-  '' + lib.optionalString (stdenv.isFreeBSD) ''
-    # lzma-sys bundles an old version of xz that doesn't build
-    # on modern FreeBSD, use the system one instead
-    substituteInPlace src/bootstrap/src/core/build_steps/tool.rs \
-        --replace 'cargo.env("LZMA_API_STATIC", "1");' ' '
-  '';
+      # Useful debugging parameter
+      # export VERBOSE=1
+    ''
+    + lib.optionalString (stdenv.isDarwin && stdenv.isx86_64) ''
+      # See https://github.com/jemalloc/jemalloc/issues/1997
+      # Using a value of 48 should work on both emulated and native x86_64-darwin.
+      export JEMALLOC_SYS_WITH_LG_VADDR=48
+    ''
+    + lib.optionalString (!(finalAttrs.src.passthru.isReleaseTarball or false)) ''
+      mkdir .cargo
+      cat > .cargo/config <<\EOF
+      [source.crates-io]
+      replace-with = "vendored-sources"
+      [source.vendored-sources]
+      directory = "vendor"
+      EOF
+    ''
+    + lib.optionalString (stdenv.isFreeBSD) ''
+      # lzma-sys bundles an old version of xz that doesn't build
+      # on modern FreeBSD, use the system one instead
+      substituteInPlace src/bootstrap/src/core/build_steps/tool.rs \
+          --replace 'cargo.env("LZMA_API_STATIC", "1");' ' '
+    '';
 
   # rustc unfortunately needs cmake to compile llvm-rt but doesn't
   # use it for the normal build. This disables cmake in Nix.
   dontUseCmakeConfigure = true;
 
-  depsBuildBuild = [ pkgsBuildHost.stdenv.cc pkg-config ];
+  depsBuildBuild = [
+    pkgsBuildHost.stdenv.cc
+    pkg-config
+  ];
   depsBuildTarget = lib.optionals stdenv.targetPlatform.isMinGW [ bintools ];
 
-  nativeBuildInputs = [
-    file python3 rustc cmake
-    which libffi removeReferencesTo pkg-config xz
-  ]
-    ++ optionals fastCross [ lndir makeWrapper ];
+  nativeBuildInputs =
+    [
+      file
+      python3
+      rustc
+      cmake
+      which
+      libffi
+      removeReferencesTo
+      pkg-config
+      xz
+    ]
+    ++ optionals fastCross [
+      lndir
+      makeWrapper
+    ];
 
-  buildInputs = [ openssl ]
-    ++ optionals stdenv.isDarwin [ libiconv Security zlib ]
+  buildInputs =
+    [ openssl ]
+    ++ optionals stdenv.isDarwin [
+      libiconv
+      Security
+      zlib
+    ]
     ++ optional (!withBundledLLVM) llvmShared.lib
     ++ optional (useLLVM && !withBundledLLVM) [
       llvmPackages.libunwind
       # Hack which is used upstream https://github.com/gentoo/gentoo/blob/master/dev-lang/rust/rust-1.78.0.ebuild#L284
-      (runCommandLocal "libunwind-libgcc" {} ''
+      (runCommandLocal "libunwind-libgcc" { } ''
         mkdir -p $out/lib
         ln -s ${llvmPackages.libunwind}/lib/libunwind.so $out/lib/libgcc_s.so
         ln -s ${llvmPackages.libunwind}/lib/libunwind.so $out/lib/libgcc_s.so.1
       '')
     ];
 
-  outputs = [ "out" "man" "doc" ];
+  outputs = [
+    "out"
+    "man"
+    "doc"
+  ];
   setOutputFlags = false;
 
-  postInstall = lib.optionalString (enableRustcDev && !fastCross) ''
-    # install rustc-dev components. Necessary to build rls, clippy...
-    python x.py dist rustc-dev
-    tar xf build/dist/rustc-dev*tar.gz
-    cp -r rustc-dev*/rustc-dev*/lib/* $out/lib/
-    rm $out/lib/rustlib/install.log
-    for m in $out/lib/rustlib/manifest-rust*
-    do
-      sort --output=$m < $m
-    done
-  '' + ''
-    # remove references to llvm-config in lib/rustlib/x86_64-unknown-linux-gnu/codegen-backends/librustc_codegen_llvm-llvm.so
-    # and thus a transitive dependency on ncurses
-    find $out/lib -name "*.so" -type f -exec remove-references-to -t ${llvmShared} '{}' '+'
+  postInstall =
+    lib.optionalString (enableRustcDev && !fastCross) ''
+      # install rustc-dev components. Necessary to build rls, clippy...
+      python x.py dist rustc-dev
+      tar xf build/dist/rustc-dev*tar.gz
+      cp -r rustc-dev*/rustc-dev*/lib/* $out/lib/
+      rm $out/lib/rustlib/install.log
+      for m in $out/lib/rustlib/manifest-rust*
+      do
+        sort --output=$m < $m
+      done
+    ''
+    + ''
+      # remove references to llvm-config in lib/rustlib/x86_64-unknown-linux-gnu/codegen-backends/librustc_codegen_llvm-llvm.so
+      # and thus a transitive dependency on ncurses
+      find $out/lib -name "*.so" -type f -exec remove-references-to -t ${llvmShared} '{}' '+'
 
-    # remove uninstall script that doesn't really make sense for Nix.
-    rm $out/lib/rustlib/uninstall.sh
-  '';
+      # remove uninstall script that doesn't really make sense for Nix.
+      rm $out/lib/rustlib/uninstall.sh
+    '';
 
   enableParallelBuilding = true;
 
@@ -329,20 +424,38 @@ in stdenv.mkDerivation (finalAttrs: {
     homepage = "https://www.rust-lang.org/";
     description = "Safe, concurrent, practical language";
     maintainers = with maintainers; [ havvy ] ++ teams.rust.members;
-    license = [ licenses.mit licenses.asl20 ];
+    license = [
+      licenses.mit
+      licenses.asl20
+    ];
     platforms = [
       # Platforms with host tools from
       # https://doc.rust-lang.org/nightly/rustc/platform-support.html
-      "x86_64-darwin" "i686-darwin" "aarch64-darwin"
-      "i686-freebsd" "x86_64-freebsd"
+      "x86_64-darwin"
+      "i686-darwin"
+      "aarch64-darwin"
+      "i686-freebsd"
+      "x86_64-freebsd"
       "x86_64-solaris"
-      "aarch64-linux" "armv6l-linux" "armv7l-linux" "i686-linux"
-      "loongarch64-linux" "powerpc64-linux" "powerpc64le-linux"
-      "riscv64-linux" "s390x-linux" "x86_64-linux"
-      "aarch64-netbsd" "armv7l-netbsd" "i686-netbsd" "powerpc-netbsd"
+      "aarch64-linux"
+      "armv6l-linux"
+      "armv7l-linux"
+      "i686-linux"
+      "loongarch64-linux"
+      "powerpc64-linux"
+      "powerpc64le-linux"
+      "riscv64-linux"
+      "s390x-linux"
+      "x86_64-linux"
+      "aarch64-netbsd"
+      "armv7l-netbsd"
+      "i686-netbsd"
+      "powerpc-netbsd"
       "x86_64-netbsd"
-      "i686-openbsd" "x86_64-openbsd"
-      "i686-windows" "x86_64-windows"
+      "i686-openbsd"
+      "x86_64-openbsd"
+      "i686-windows"
+      "x86_64-windows"
     ];
   };
 })
